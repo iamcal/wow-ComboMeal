@@ -1,0 +1,9 @@
+## Interface: 40300
+## Title : ComboMeal
+## Notes: Rotation timers for combat rogues
+## Author: Cal Henderson (Bees on Hyjal-US)
+## Version: 1.0
+## Dependencies: 
+## SavedVariablesPerCharacter: ComboMealPrefs
+
+ComboMeal.lua
