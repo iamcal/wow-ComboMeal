@@ -12,6 +12,9 @@ ComboMeal.default_options = {
 	hide = false,
 };
 
+ComboMeal.start_w = 200;
+ComboMeal.start_h = 200;
+
 
 function ComboMeal.OnReady()
 
