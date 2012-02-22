@@ -45,6 +45,14 @@ function ComboMeal.OnUpdate()
 		return;
 	end
 
+	-- hide if we're not a combat rogue
+	local talentGroup = GetActiveTalentGroup(false, false);
+	local _, _, _, _, combatPoints = GetTalentTabInfo(2, false, false, talentGroup);
+	if (combatPoints <= 11) then
+		ComboMeal.UIFrame:hide();
+		return;
+	end
+
 	if (ComboMealPrefs.hide) then 
 		return;
 	end
@@ -144,8 +152,10 @@ end
 
 function ComboMeal.UpdateFrame()
 
-	-- update the main frame state here
-	ComboMeal.Label:SetText(GetTime());
+	local comboPoints = GetComboPoints('player', 'target');
+	--GetSpellCooldown()
+
+	ComboMeal.Label:SetText(string.format("combo points: %d", comboPoints));
 end
 
 
