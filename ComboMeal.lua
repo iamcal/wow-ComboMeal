@@ -13,7 +13,7 @@ ComboMeal.default_options = {
 };
 
 ComboMeal.start_w = 204;
-ComboMeal.start_h = 80;
+ComboMeal.start_h = 200;
 ComboMeal.bleed_mobs = {};
 ComboMeal.misc_counter = 1;
 
@@ -100,9 +100,9 @@ function ComboMeal.CreateUIFrame()
 	ComboMeal.UIFrame:SetHeight(ComboMeal.start_h);
 
 	-- make it black
-	ComboMeal.UIFrame.texture = ComboMeal.UIFrame:CreateTexture();
-	ComboMeal.UIFrame.texture:SetAllPoints(ComboMeal.UIFrame);
-	ComboMeal.UIFrame.texture:SetTexture(0, 0, 0);
+	--ComboMeal.UIFrame.texture = ComboMeal.UIFrame:CreateTexture();
+	--ComboMeal.UIFrame.texture:SetAllPoints(ComboMeal.UIFrame);
+	--ComboMeal.UIFrame.texture:SetTexture(0, 0, 0);
 
 	-- position it
 	ComboMeal.UIFrame:SetPoint(_G.ComboMealPrefs.frameRef, _G.ComboMealPrefs.frameX, _G.ComboMealPrefs.frameY);
@@ -145,6 +145,16 @@ function ComboMeal.CreateUIFrame()
 	ComboMeal.buttons.rev.label:SetText("1");
 	ComboMeal.buttons.rup.label:SetText("4");
 	ComboMeal.buttons.evi.label:SetText("3");
+
+	ComboMeal.PointBoxes = {};
+	ComboMeal.PointBoxes[1] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*0, 41, 40, 20);
+	ComboMeal.PointBoxes[2] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*1, 41, 40, 20);
+	ComboMeal.PointBoxes[3] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*2, 41, 40, 20);
+	ComboMeal.PointBoxes[4] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*3, 41, 40, 20);
+	ComboMeal.PointBoxes[5] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*4, 41, 40, 20);
+
+
+
 end
 
 function ComboMeal.CreateButton(parent, x, y, w, h, texture)
@@ -183,6 +193,49 @@ function ComboMeal.CreateButton(parent, x, y, w, h, texture)
 	b.glow:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", w * 0.2, -h*0.2);
 	b.glow:Hide();
 	b.is_glowing = false;
+
+	return b;
+end
+
+function ComboMeal.CreateComboBox(parent, x, y, w, h)
+
+	local b = CreateFrame("Button", nil, parent);
+	b:SetPoint("TOPLEFT", x, 0-y);
+	b:SetWidth(w);
+	b:SetHeight(h);
+
+	b:SetBackdrop({
+		bgFile		= "Interface/Tooltips/UI-Tooltip-Background",
+		edgeFile	= "Interface/Tooltips/UI-Tooltip-Border",
+		tile		= false,
+		tileSize	= 16,
+		edgeSize	= 8,
+		insets		= {
+			left	= 3,
+			right	= 3,
+			top	= 3,
+			bottom	= 3,
+		},
+	});
+
+	function b:SetState(is_on)
+
+		if (b.is_on == is_on) then
+			return;
+		end
+		b.is_on = is_on;
+
+		if (is_on) then
+			self:SetBackdropColor(0,1,0);
+			self:SetBackdropBorderColor(1,1,1);
+		else
+			self:SetBackdropColor(0,0,0,0.2);
+			self:SetBackdropBorderColor(1,1,1,0.2);
+		end
+	end
+
+	b.is_on = true;
+	b:SetState(false);
 
 	return b;
 end
@@ -232,6 +285,12 @@ function ComboMeal.UpdateFrame()
 	ComboMeal.SetButtonState(ComboMeal.buttons.rev, status.shots.rev, "Revealing Strike");
 	ComboMeal.SetButtonState(ComboMeal.buttons.rup, status.shots.rup, "Rupture");
 	ComboMeal.SetButtonState(ComboMeal.buttons.evi, status.shots.evi, "Eviscerate");
+
+	ComboMeal.PointBoxes[1]:SetState(status.comboPoints >= 1);
+	ComboMeal.PointBoxes[2]:SetState(status.comboPoints >= 2);
+	ComboMeal.PointBoxes[3]:SetState(status.comboPoints >= 3);
+	ComboMeal.PointBoxes[4]:SetState(status.comboPoints >= 4);
+	ComboMeal.PointBoxes[5]:SetState(status.comboPoints >= 5);
 
 
 	ComboMeal.Label:SetText(status.label.."\n"..str_ss.."\n"..str_snd.."\n"..str_rev.."\n"..str_rup.."\n"..str_evi);
@@ -325,6 +384,7 @@ function ComboMeal.GetShotStatus()
 	local out = {};
 
 	out.label = "";
+	out.comboPoints = 0;
 	out.shots = {
 		ss = "off",
 		snd = "off",
@@ -392,6 +452,7 @@ function ComboMeal.GetShotStatus()
 	-- combo points!
 
 	local comboPoints = GetComboPoints('player', 'target');
+	out.comboPoints = comboPoints;
 
 
 	-- energy stuff
