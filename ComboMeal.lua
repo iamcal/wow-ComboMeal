@@ -14,7 +14,15 @@ ComboMeal.default_options = {
 
 ComboMeal.start_w = 200;
 ComboMeal.start_h = 200;
+ComboMeal.bleed_mobs = {};
 
+ComboMeal.bleed_debuffs = {};
+ComboMeal.bleed_debuffs["Mangle"]	= 1; -- bear/cat druid
+ComboMeal.bleed_debuffs["Hemorrhage"]	= 1; -- sub rogue
+ComboMeal.bleed_debuffs["Blood Frenzy"]	= 1; -- arms warrior
+ComboMeal.bleed_debuffs["Tendon Rip"]	= 1; -- hyena pet
+ComboMeal.bleed_debuffs["Gore"]		= 1; -- boar pet
+ComboMeal.bleed_debuffs["Stampede"]	= 1; -- rhino pet
 
 function ComboMeal.OnReady()
 
@@ -152,10 +160,187 @@ end
 
 function ComboMeal.UpdateFrame()
 
-	local comboPoints = GetComboPoints('player', 'target');
-	--GetSpellCooldown()
+	-- if we're not in combat, dump our bleed list so it doesn't fill up forever
+	if (not UnitAffectingCombat("player")) then
+		ComboMeal.bleed_mobs = {};
+	end
 
-	ComboMeal.Label:SetText(string.format("combo points: %d", comboPoints));
+
+
+
+	local status = ComboMeal.GetShotStatus();
+
+	local str_snd = ComboMeal.FormatShot("Slice and Dice", status.shots.snd);
+	local str_rev = ComboMeal.FormatShot("Revealing Strike", status.shots.rev);
+	local str_rup = ComboMeal.FormatShot("Rupture", status.shots.rup);
+	local str_evi = ComboMeal.FormatShot("Eviscerate", status.shots.evi);
+
+	ComboMeal.Label:SetText(str_snd.."\n"..str_rev.."\n"..str_rup.."\n"..str_evi);
+end
+
+function ComboMeal.FormatShot(name, state)
+
+	if (state == "off") then
+		return name..": no";
+	end
+
+	if (state == "next") then
+		return name..": up next";
+	end
+
+	if (state == "now") then
+		return name..": GO!";
+	end
+
+	return name..": ?"..state;
+end
+
+function ComboMeal.GetShotStatus()
+
+	local out = {};
+
+	-- figure out current target debuffs.
+	-- we need to check if this target has ever had a bleed on it.
+
+	local ruptureUp = false;
+	local ruptureRemain = 0;
+
+	local target_guid = UnitGUID("target");
+
+	local index = 1
+	while UnitDebuff("target", index) do
+		local name, _, _, count, _, _, buffExpires, caster = UnitDebuff("target", index);
+		if (ComboMeal.bleed_debuffs[name]) then
+			ComboMeal.bleed_mobs[target_guid] = 1;
+		end
+		if ((name == "Rupture") and (caster == "player")) then
+			ruptureUp = true;
+			ruptureRemain = buffExpires - GetTime();
+		end
+		index = index + 1
+	end
+
+
+	-- check our own buffs
+
+	local hasSnD = false;
+	local remainSnD = 0;
+
+	local index = 1;
+	while UnitBuff("player", index) do
+		local name, _, _, count, _, _, buffExpires, caster = UnitBuff("player", index)
+		if (name == "Slice and Dice") then
+			hasSnD = true;
+			remainSnD = buffExpires - GetTime();
+		end
+		index = index + 1
+	end
+
+
+	-- combo points!
+
+	local comboPoints = GetComboPoints('player', 'target');
+
+
+	-- energy stuff
+
+	local costs = {
+		snd = ComboMeal.GetSpellCost("Slice and Dice"),
+		rev = ComboMeal.GetSpellCost("Revealing Strike"),
+		rup = ComboMeal.GetSpellCost("Rupture"),
+		evi = ComboMeal.GetSpellCost("Eviscerate"),
+	};
+	local energy = UnitPower("player");
+
+
+	-- main priority list
+	-- if slice and dice is down, use with any combo points (1+)
+	-- if slice and dice will fall off within X seconds, use 4-5 combo points on it
+	-- if we have *exactly* 4 combo points, use revealing strike
+	-- if target has bleed debuff
+		-- if rupture will fall off within 1 second, wait
+		-- if rupture is not active, 5 combo rupture
+	-- 5 combo eviscerate
+	-- sinister strike
+
+
+	out.shots = {
+		snd = "off",
+		rev = "off",
+		rup = "off",
+		evi = "off",
+	};
+
+	if (not hasSnD) then
+
+		if (comboPoints > 0) then
+			if (energy < costs.snd) then
+				out.shots.snd = "next-energy";
+			else
+				out.shots.snd = "now";
+			end
+		else
+			out.shots.snd = "next-combo";
+		end
+		return out;
+	end
+
+	if (remainSnD < 5) then
+		if (comboPoints > 3) then
+			if (energy < costs.snd) then
+				out.shots.snd = "next-energy";
+			else
+				out.shots.snd = "now";
+			end
+		else
+			out.shots.snd = "next-combo";
+		end
+		return out;
+	end
+
+	if (comboPoints == 4) then
+		if (energy < costs.rev) then
+			out.shots.rev = "next-energy";
+		else
+			out.shots.rev = "now";
+		end
+		return out;
+	end
+
+	if (ruptureUp and (ruptureRemain < 2)) then
+		out.shots.rup = "next-wait";
+		return out;
+	end
+
+	if (not ruptureUp) then
+		if (comboPoints == 5) then
+			if (energy < costs.rup) then
+				out.shots.rup = "next-energy";
+			else
+				out.shots.rup = "now";
+			end
+		else
+			out.shots.rup = "next-combo";
+		end
+		return out;
+	end
+
+	if (comboPoints == 5) then
+		if (energy < costs.evi) then
+			out.shots.evi = "next-enrgy";
+		else
+			out.shots.evi = "now";
+		end
+	else
+		out.shots.evi = "next-combo";
+	end
+
+	return out;
+end
+
+function ComboMeal.GetSpellCost(spellName)
+	name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellName);
+	return cost;
 end
 
 
