@@ -466,6 +466,17 @@ function ComboMeal.GetShotStatus()
 	local energy = UnitPower("player");
 
 
+	-- should we use Rupture?
+	-- not if we have blade flurry up!
+
+	local useRupture = true;
+
+	local test = UnitAura("Player", "Blade Flurry");
+	if (test) then
+		useRupture = false;
+	end
+
+
 	-- main priority list
 	-- if slice and dice is down, use with any combo points (1+)
 	-- if slice and dice will fall off within X seconds, use 4-5 combo points on it
@@ -515,23 +526,26 @@ function ComboMeal.GetShotStatus()
 		return out;
 	end
 
-	if (ruptureUp and (ruptureRemain < 2)) then
-		out.shots.rup = "next";
-		return out;
-	end
+	if (useRupture) then
 
-	if (not ruptureUp) then
-		if (comboPoints == 5) then
-			if (energy < costs.rup) then
-				out.shots.rup = "next";
-			else
-				out.shots.rup = "now";
-			end
-		else
+		if (ruptureUp and (ruptureRemain < 2)) then
 			out.shots.rup = "next";
-			out.shots.ss = "now";
+			return out;
 		end
-		return out;
+
+		if (not ruptureUp) then
+			if (comboPoints == 5) then
+				if (energy < costs.rup) then
+					out.shots.rup = "next";
+				else
+					out.shots.rup = "now";
+				end
+			else
+				out.shots.rup = "next";
+				out.shots.ss = "now";
+			end
+			return out;
+		end
 	end
 
 	if (comboPoints == 5) then
