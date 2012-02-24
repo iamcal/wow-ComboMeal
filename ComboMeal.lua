@@ -13,9 +13,20 @@ ComboMeal.default_options = {
 };
 
 ComboMeal.start_w = 204;
-ComboMeal.start_h = 200;
+ComboMeal.start_h = 400;
 ComboMeal.bleed_mobs = {};
 ComboMeal.misc_counter = 1;
+
+ComboMeal.btn_text = {
+	ss = "2",
+	snd = "7",
+	rev = "1",
+	rup = "4",
+	evi = "3",
+	ar = "ALT-1",
+	ks = "ALT-2",
+	bf = "ALT-3",
+};
 
 ComboMeal.bleed_debuffs = {};
 ComboMeal.bleed_debuffs["Mangle"]	= 1; -- bear/cat druid
@@ -134,17 +145,21 @@ function ComboMeal.CreateUIFrame()
 	ComboMeal.SetFontSize(ComboMeal.Label, 10);
 
 	ComboMeal.buttons = {};
+
 	ComboMeal.buttons.ss  = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*0, 0, 40, 40, [[Interface\Icons\spell_shadow_ritualofsacrifice]]);
 	ComboMeal.buttons.snd = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*1, 0, 40, 40, [[Interface\Icons\ability_rogue_slicedice]]);
 	ComboMeal.buttons.rev = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*2, 0, 40, 40, [[Interface\Icons\inv_sword_97]]);
 	ComboMeal.buttons.rup = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*3, 0, 40, 40, [[Interface\Icons\ability_rogue_rupture]]);
 	ComboMeal.buttons.evi = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*4, 0, 40, 40, [[Interface\Icons\ability_rogue_eviscerate]]);
 
-	ComboMeal.buttons.ss.label:SetText("2");
-	ComboMeal.buttons.snd.label:SetText("7");
-	ComboMeal.buttons.rev.label:SetText("1");
-	ComboMeal.buttons.rup.label:SetText("4");
-	ComboMeal.buttons.evi.label:SetText("3");
+	ComboMeal.buttons.ar  = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*1, 62, 40, 40, [[Interface\Icons\spell_shadow_shadowworddominate]]);
+	ComboMeal.buttons.ks  = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*2, 62, 40, 40, [[Interface\Icons\ability_rogue_murderspree]]);
+	ComboMeal.buttons.bf  = ComboMeal.CreateButton(ComboMeal.UIFrame, 41*3, 62, 40, 40, [[Interface\Icons\ability_warrior_punishingblow]]);
+
+	local k, btn;
+	for k,btn in pairs(ComboMeal.buttons) do
+		btn.label:SetText(ComboMeal.btn_text[k]);
+	end
 
 	ComboMeal.PointBoxes = {};
 	ComboMeal.PointBoxes[1] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*0, 41, 40, 20);
@@ -152,8 +167,6 @@ function ComboMeal.CreateUIFrame()
 	ComboMeal.PointBoxes[3] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*2, 41, 40, 20);
 	ComboMeal.PointBoxes[4] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*3, 41, 40, 20);
 	ComboMeal.PointBoxes[5] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*4, 41, 40, 20);
-
-
 
 end
 
@@ -169,6 +182,30 @@ function ComboMeal.CreateButton(parent, x, y, w, h, texture)
 	b:SetHeight(h)
 	b:SetNormalTexture(texture);
 
+	function b:SetStateColor(col)
+		local tex = self:GetNormalTexture();
+		if (col == 'blue') then
+			tex:SetVertexColor(0.5, 0.5, 1.0);
+		elseif (col == 'off') then
+			tex:SetVertexColor(0.3, 0.3, 0.3);
+		else
+			tex:SetVertexColor(1.0, 1.0, 1.0);
+		end
+	end
+
+	function b:SetSpellState(spellName)
+		self:SetCooldown(true, spellName);
+		local isUsable, notEnoughMana = IsUsableSpell(spellName);
+		if (isUsable) then
+			self:SetStateColor('normal');
+		elseif (notEnoughMana) then
+			self:SetStateColor('blue');
+		else
+			self:SetStateColor('off');
+		end
+	end
+
+
 	-- the text label - use to show key binds
 	b.label = b:CreateFontString(nil, "OVERLAY");
 	b.label:Show()
@@ -178,12 +215,44 @@ function ComboMeal.CreateButton(parent, x, y, w, h, texture)
 	b.label:SetPoint("CENTER", b, "CENTER", 0, 0);
 	b.label:SetText(" ");
 
+
 	-- the cooldown timer
 	b.cooldown = CreateFrame("Cooldown", name.."_cooldown", b, "CooldownFrameTemplate");
 	b.cooldown:SetAllPoints(b);
 	b.cooldown:Hide();
 	b.cd_start = 0;
 	b.cd_duration = 0;
+
+	function b:SetCooldown(enable, spellName)
+
+		if (not enable) then
+			return self:SetCooldownManual(false);
+		end
+
+		local start, duration, enabledToo = GetSpellCooldown(spellName);
+
+		self:SetCooldownManual(enabledToo, start, duration);
+	end
+
+	function b:SetCooldownManual(enable, start, duration)
+
+		if (not enable) then
+			self.cooldown:Hide();
+			self.cd_start = 0;
+			self.cd_duration = 0;
+			return;
+		end
+
+		if (start == self.cd_start and duration == self.cd_duration) then
+			return;
+		end
+
+		self.cooldown:SetCooldown(start, duration);
+		self.cooldown:Show();
+		self.cd_start = start;
+		self.cd_duration = duration;
+	end
+
 
 	-- the glow overlay - used to show next shot
 	b.glow = CreateFrame("Frame", name.."_glow", UIParent, "ActionBarButtonSpellActivationAlert");
@@ -193,6 +262,25 @@ function ComboMeal.CreateButton(parent, x, y, w, h, texture)
 	b.glow:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", w * 0.2, -h*0.2);
 	b.glow:Hide();
 	b.is_glowing = false;
+
+	function b:SetGlow(is_glowing)
+		if (is_glowing) then
+			if (not self.is_glowing) then
+				self.glow.animOut:Stop();
+				self.glow.animIn:Play();
+				self.is_glowing = true;
+			end
+			self.glow:Show();
+		else
+			if (self.is_glowing) then
+				self.glow.animIn:Stop();
+				self.glow.animOut:Play();
+				self.is_glowing = false;
+			end
+		end
+	end
+
+
 
 	return b;
 end
@@ -293,6 +381,57 @@ function ComboMeal.UpdateFrame()
 	ComboMeal.PointBoxes[5]:SetState(status.comboPoints >= 5);
 
 
+	-- blade flurry
+
+	local btn = ComboMeal.buttons.bf;
+	if (status.bladeFlurry) then
+		btn:SetStateColor('normal');
+		btn:SetAlpha(1);
+	else
+		btn:SetStateColor('off');
+		btn:SetAlpha(1);
+	end
+	btn:SetCooldown(true, "Blade Flurry");
+
+
+	-- adrenaline rush
+
+	local btn = ComboMeal.buttons.ar;
+	if (status.ksActive) then
+		btn:SetAlpha(0.2);
+		btn:SetGlow(false);
+		btn:SetSpellState("Adrenaline Rush");
+	else
+		btn:SetAlpha(1);
+		if (status.arActive) then
+			btn:SetGlow(true);
+			btn:SetCooldownManual(true, status.arStart, status.arDuration);
+		else
+			btn:SetGlow(false);
+			btn:SetSpellState("Adrenaline Rush");
+		end
+	end
+
+
+	-- killing spree
+
+	local btn = ComboMeal.buttons.ks;
+	if (status.arActive or status.energy > 40) then
+		btn:SetAlpha(0.2);
+		btn:SetGlow(false);
+		btn:SetSpellState("Killing Spree");
+	else
+		btn:SetAlpha(1);
+		if (status.ksActive) then
+			btn:SetGlow(true);
+			btn:SetCooldownManual(true, status.ksStart, status.ksDuration);
+		else
+			btn:SetGlow(false);
+			btn:SetSpellState("Killing Spree");
+		end
+	end
+
+
 	ComboMeal.Label:SetText(status.label.."\n"..str_ss.."\n"..str_snd.."\n"..str_rev.."\n"..str_rup.."\n"..str_evi);
 end
 
@@ -315,43 +454,26 @@ end
 
 function ComboMeal.SetButtonState(btn, state, spellName)
 
-	-- mana overlay
-	local tex = btn:GetNormalTexture();
+	-- energy state overlay
 	local isUsable, notEnoughMana = IsUsableSpell(spellName);
-	if ( isUsable ) then
-		tex:SetVertexColor(1.0, 1.0, 1.0);
-	elseif ( notEnoughMana ) then
-		tex:SetVertexColor(0.5, 0.5, 1.0);
+	if (isUsable) then
+		btn:SetStateColor('normal');
+	elseif (notEnoughMana) then
+		btn:SetStateColor('blue');
 	else
-		tex:SetVertexColor(1.0, 1.0, 1.0);
+		btn:SetStateColor('normal');
 	end
 
-
-
+	-- glow & cooldown
 	if (state == "now") then
-		if (not btn.is_glowing) then
-			btn.glow.animOut:Stop();
-			btn.glow.animIn:Play();
-			btn.is_glowing = true;
-		end
-		btn.glow:Show();
-
-		-- set cooldown
-		local start, duration, enabled = GetSpellCooldown(spellName);
-		ComboMeal.SetButtonCooldown(btn, true, start, duration);
-
-		-- set energy overlay
-		
-
+		btn:SetGlow(true);
+		btn:SetCooldown(true, spellName);		
 	else
-		if (btn.is_glowing) then
-			btn.glow.animIn:Stop();
-			btn.glow.animOut:Play();
-			btn.is_glowing = false;
-		end
-		ComboMeal.SetButtonCooldown(btn, false);
+		btn:SetGlow(false);
+		btn:SetCooldown(false);
 	end
 
+	-- transparency
 	if (state == "off") then
 		btn:SetAlpha(0.2);
 	else
@@ -360,31 +482,16 @@ function ComboMeal.SetButtonState(btn, state, spellName)
 
 end
 
-function ComboMeal.SetButtonCooldown(btn, enable, start, duration)
-
-	if (not enable) then
-		btn.cooldown:Hide();
-		btn.cd_start = 0;
-		btn.cd_duration = 0;
-		return;
-	end
-
-	if (start == btn.cd_start and duration == btn.cd_duration) then
-		return;
-	end
-
-	btn.cooldown:SetCooldown(start, duration);
-	btn.cooldown:Show();
-	btn.cd_start = start;
-	btn.cd_duration = duration;
-end
-
 function ComboMeal.GetShotStatus()
 
 	local out = {};
 
 	out.label = "";
 	out.comboPoints = 0;
+	out.bladeFlurry = false;
+	out.arActive = false;
+	out.ksActive = false;
+	out.energy = UnitPower("player");
 	out.shots = {
 		ss = "off",
 		snd = "off",
@@ -392,6 +499,27 @@ function ComboMeal.GetShotStatus()
 		rup = "off",
 		evi = "off",
 	};
+
+	-- test auras first
+	local test = UnitAura("Player", "Blade Flurry");
+	if (test) then
+		out.bladeFlurry = true;
+	end
+
+	local test,_,_,_,_,duration,expires = UnitAura("Player", "Adrenaline Rush");
+	if (test) then
+		out.arActive= true;
+		out.arStart = expires - duration;
+		out.arDuration = duration;
+	end
+
+	local test,_,_,_,_,duration,expires = UnitAura("Player", "Killing Spree");
+	if (test) then
+		out.ksActive= true;
+		out.ksStart = expires - duration;
+		out.ksDuration = duration;
+	end
+
 
 	-- can we attack anything?
 	local can_attack = UnitCanAttack("player", "target");
@@ -463,7 +591,6 @@ function ComboMeal.GetShotStatus()
 		rup = ComboMeal.GetSpellCost("Rupture"),
 		evi = ComboMeal.GetSpellCost("Eviscerate"),
 	};
-	local energy = UnitPower("player");
 
 
 	-- should we use Rupture?
@@ -471,8 +598,7 @@ function ComboMeal.GetShotStatus()
 
 	local useRupture = true;
 
-	local test = UnitAura("Player", "Blade Flurry");
-	if (test) then
+	if (out.bladeFlurry) then
 		useRupture = false;
 	end
 
@@ -491,7 +617,7 @@ function ComboMeal.GetShotStatus()
 	if (not hasSnD) then
 
 		if (comboPoints > 0) then
-			if (energy < costs.snd) then
+			if (out.energy < costs.snd) then
 				out.shots.snd = "next";
 			else
 				out.shots.snd = "now";
@@ -505,7 +631,7 @@ function ComboMeal.GetShotStatus()
 
 	if (remainSnD < 5) then
 		if (comboPoints > 3) then
-			if (energy < costs.snd) then
+			if (out.energy < costs.snd) then
 				out.shots.snd = "next";
 			else
 				out.shots.snd = "now";
@@ -518,7 +644,7 @@ function ComboMeal.GetShotStatus()
 	end
 
 	if (comboPoints == 4) then
-		if (energy < costs.rev) then
+		if (out.energy < costs.rev) then
 			out.shots.rev = "next";
 		else
 			out.shots.rev = "now";
@@ -535,7 +661,7 @@ function ComboMeal.GetShotStatus()
 
 		if (not ruptureUp) then
 			if (comboPoints == 5) then
-				if (energy < costs.rup) then
+				if (out.energy < costs.rup) then
 					out.shots.rup = "next";
 				else
 					out.shots.rup = "now";
@@ -549,7 +675,7 @@ function ComboMeal.GetShotStatus()
 	end
 
 	if (comboPoints == 5) then
-		if (energy < costs.evi) then
+		if (out.energy < costs.evi) then
 			out.shots.evi = "next";
 		else
 			out.shots.evi = "now";
