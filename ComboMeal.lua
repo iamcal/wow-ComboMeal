@@ -13,9 +13,10 @@ ComboMeal.default_options = {
 };
 
 ComboMeal.start_w = 204;
-ComboMeal.start_h = 400;
+ComboMeal.start_h = 143;
 ComboMeal.bleed_mobs = {};
 ComboMeal.misc_counter = 1;
+ComboMeal.cd_buttons_max = 10;
 
 ComboMeal.btn_text = {
 	ss = "2",
@@ -26,6 +27,14 @@ ComboMeal.btn_text = {
 	ar = "ALT-1",
 	ks = "ALT-2",
 	bf = "ALT-3",
+};
+
+ComboMeal.cooldown_spells = {
+	"Lifeblood",		-- herbalists
+	"Rocket Barrage",	-- goblins
+	"Blood Fury",		-- orcs
+	"War Stomp",		-- tauren
+	"Berserking",		-- trolls
 };
 
 ComboMeal.bleed_debuffs = {};
@@ -41,6 +50,7 @@ function ComboMeal.OnReady()
 	-- set up default options
 	_G.ComboMealPrefs = _G.ComboMealPrefs or {};
 
+	local k,v;
 	for k,v in pairs(ComboMeal.default_options) do
 		if (not _G.ComboMealPrefs[k]) then
 			_G.ComboMealPrefs[k] = v;
@@ -167,6 +177,12 @@ function ComboMeal.CreateUIFrame()
 	ComboMeal.PointBoxes[3] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*2, 41, 40, 20);
 	ComboMeal.PointBoxes[4] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*3, 41, 40, 20);
 	ComboMeal.PointBoxes[5] = ComboMeal.CreateComboBox(ComboMeal.UIFrame, 41*4, 41, 40, 20);
+
+	ComboMeal.cd_buttons = {};
+	local i;
+	for i=1,ComboMeal.cd_buttons_max do
+		ComboMeal.cd_buttons[i] = ComboMeal.CreateButton(ComboMeal.UIFrame, 0, 103, 40, 40, [[Interface\Icons\spell_shadow_shadowworddominate]]);
+	end
 
 end
 
@@ -362,11 +378,8 @@ function ComboMeal.UpdateFrame()
 
 	local status = ComboMeal.GetShotStatus();
 
-	local str_ss = ComboMeal.FormatShot("Sinister Shot", status.shots.ss);
-	local str_snd = ComboMeal.FormatShot("Slice and Dice", status.shots.snd);
-	local str_rev = ComboMeal.FormatShot("Revealing Strike", status.shots.rev);
-	local str_rup = ComboMeal.FormatShot("Rupture", status.shots.rup);
-	local str_evi = ComboMeal.FormatShot("Eviscerate", status.shots.evi);
+
+	-- set up buttons and boxes
 
 	ComboMeal.SetButtonState(ComboMeal.buttons.ss,  status.shots.ss,  "Sinister Strike");
 	ComboMeal.SetButtonState(ComboMeal.buttons.snd, status.shots.snd, "Slice and Dice");
@@ -387,9 +400,11 @@ function ComboMeal.UpdateFrame()
 	if (status.bladeFlurry) then
 		btn:SetStateColor('normal');
 		btn:SetAlpha(1);
+		btn:SetGlow(true);
 	else
 		btn:SetStateColor('off');
 		btn:SetAlpha(1);
+		btn:SetGlow(false);
 	end
 	btn:SetCooldown(true, "Blade Flurry");
 
@@ -432,24 +447,73 @@ function ComboMeal.UpdateFrame()
 	end
 
 
-	ComboMeal.Label:SetText(status.label.."\n"..str_ss.."\n"..str_snd.."\n"..str_rev.."\n"..str_rup.."\n"..str_evi);
-end
+	-- trinkets & other cooldowns
 
-function ComboMeal.FormatShot(name, state)
+	local cooldowns = {};	
+	local cooldowns_count = 0;
 
-	if (state == "off") then
-		return name..": no";
+	local t1_item = GetInventoryItemID("player", 13);
+	local t2_item = GetInventoryItemID("player", 14);
+	local t1_spell = nil;
+	local t2_spell = nil;
+	if (t1_item) then t1_spell = GetItemSpell(t1_item); end
+	if (t2_item) then t2_spell = GetItemSpell(t2_item); end
+
+	if (t1_spell) then
+		table.insert(cooldowns, {
+			type = "item",
+			id = t1_item,
+		});
+		cooldowns_count = cooldowns_count + 1;
+	end
+	if (t2_spell) then
+		table.insert(cooldowns, {
+			type = "item",
+			id = t2_item,
+		});
+		cooldowns_count = cooldowns_count + 1;
 	end
 
-	if (state == "next") then
-		return name..": up next";
+	local k,v
+	for k,v in pairs(ComboMeal.cooldown_spells) do
+		local count = GetSpellCount(v);
+		if (count) then
+			table.insert(cooldowns, {
+				type = "spell",
+				id = v,
+			});
+			cooldowns_count = cooldowns_count + 1;
+		end
 	end
 
-	if (state == "now") then
-		return name..": GO!";
+	local cd_width = (41 * cooldowns_count) - 1;
+	local cd_left = (102 - (cd_width / 2)) - 41;
+
+	for i=1,ComboMeal.cd_buttons_max do
+		local btn = ComboMeal.cd_buttons[i];
+		if (i <= cooldowns_count) then
+			local info = cooldowns[i];
+
+			local texture, start, duration, enable;
+
+			if (info.type == 'item') then
+				_, _, _, _, _, _, _, _, _, texture, _ = GetItemInfo(info.id);
+				start, duration, enable = GetItemCooldown(info.id);
+			else
+				texture = GetSpellTexture(info.id);
+				start, duration, enable = GetSpellCooldown(info.id);
+			end
+
+			btn:SetPoint("TOPLEFT", cd_left + (i * 41), 0-103);
+			btn:Show();
+			btn:SetNormalTexture(texture);
+			btn:SetCooldownManual(enable, start, duration);
+		else
+			btn:Hide();
+		end
 	end
 
-	return name..": ?"..state;
+	ComboMeal.Label:SetText(" ");
 end
 
 function ComboMeal.SetButtonState(btn, state, spellName)
@@ -689,7 +753,7 @@ function ComboMeal.GetShotStatus()
 end
 
 function ComboMeal.GetSpellCost(spellName)
-	name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellName);
+	local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellName);
 	return cost;
 end
 
