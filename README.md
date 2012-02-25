@@ -14,3 +14,11 @@ The fourth row shows profession and racial cooldowns and any on-use trinkets.
 
 
 These icons are _not_ ability buttons - they cannot be clicked. Set up your keybinds however you normally would - this addon is just to help you monitor rotation and cooldowns.
+
+
+## TODO
+
+* Check KS is working correctly (I don't yet have it on my 64 rogue)
+* Add Redirect to the second row
+* Allow customization of the overlay (keybind) text. These are currently hard-coded.
+* Correctly advise SnD when there are combo points on old targets
