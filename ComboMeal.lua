@@ -17,6 +17,8 @@ ComboMeal.start_h = 143;
 ComboMeal.bleed_mobs = {};
 ComboMeal.misc_counter = 1;
 ComboMeal.cd_buttons_max = 10;
+ComboMeal.last_combo_guid = nil;
+ComboMeal.last_combo_count = 0;
 
 ComboMeal.btn_text = {
 	ss = "2",
@@ -109,6 +111,12 @@ function ComboMeal.OnEvent(frame, event, ...)
 	if (event == 'PLAYER_LOGOUT') then
 		ComboMeal.OnSaving();
 		return;
+	end
+
+	if (event == 'UNIT_COMBO_POINTS') then
+
+		ComboMeal.last_combo_guid = UnitGUID('target');
+		ComboMeal.last_combo_count = 0;
 	end
 end
 
@@ -309,7 +317,7 @@ function ComboMeal.CreateComboBox(parent, x, y, w, h)
 	b:SetHeight(h);
 
 	b:SetBackdrop({
-		bgFile		= "Interface/Tooltips/UI-Tooltip-Background",
+		bgFile		= "Interface/TargetingFrame/UI-StatusBar", --""Interface/Tooltips/UI-Tooltip-Background",
 		edgeFile	= "Interface/Tooltips/UI-Tooltip-Border",
 		tile		= false,
 		tileSize	= 16,
@@ -322,15 +330,21 @@ function ComboMeal.CreateComboBox(parent, x, y, w, h)
 		},
 	});
 
-	function b:SetState(is_on)
+	function b:SetState(is_on, is_old)
 
-		if (b.is_on == is_on) then
+		if ((self.is_on == is_on) and (self.is_old == is_old)) then
 			return;
 		end
-		b.is_on = is_on;
+
+		self.is_on = is_on;
+		self.is_old = is_old;
 
 		if (is_on) then
-			self:SetBackdropColor(0,1,0);
+			if (is_old) then
+				self:SetBackdropColor(1,1,0);
+			else
+				self:SetBackdropColor(0,1,0);
+			end
 			self:SetBackdropBorderColor(1,1,1);
 		else
 			self:SetBackdropColor(0,0,0,0.2);
@@ -339,7 +353,8 @@ function ComboMeal.CreateComboBox(parent, x, y, w, h)
 	end
 
 	b.is_on = true;
-	b:SetState(false);
+	b.is_old = true;
+	b:SetState(false, false);
 
 	return b;
 end
@@ -387,11 +402,19 @@ function ComboMeal.UpdateFrame()
 	ComboMeal.SetButtonState(ComboMeal.buttons.rup, status.shots.rup, "Rupture");
 	ComboMeal.SetButtonState(ComboMeal.buttons.evi, status.shots.evi, "Eviscerate");
 
-	ComboMeal.PointBoxes[1]:SetState(status.comboPoints >= 1);
-	ComboMeal.PointBoxes[2]:SetState(status.comboPoints >= 2);
-	ComboMeal.PointBoxes[3]:SetState(status.comboPoints >= 3);
-	ComboMeal.PointBoxes[4]:SetState(status.comboPoints >= 4);
-	ComboMeal.PointBoxes[5]:SetState(status.comboPoints >= 5);
+	if (status.comboPoints > 0 or status.comboPointsOld == 0) then
+		ComboMeal.PointBoxes[1]:SetState(status.comboPoints >= 1, false);
+		ComboMeal.PointBoxes[2]:SetState(status.comboPoints >= 2, false);
+		ComboMeal.PointBoxes[3]:SetState(status.comboPoints >= 3, false);
+		ComboMeal.PointBoxes[4]:SetState(status.comboPoints >= 4, false);
+		ComboMeal.PointBoxes[5]:SetState(status.comboPoints >= 5, false);
+	else
+		ComboMeal.PointBoxes[1]:SetState(status.comboPointsOld >= 1, true);
+		ComboMeal.PointBoxes[2]:SetState(status.comboPointsOld >= 2, true);
+		ComboMeal.PointBoxes[3]:SetState(status.comboPointsOld >= 3, true);
+		ComboMeal.PointBoxes[4]:SetState(status.comboPointsOld >= 4, true);
+		ComboMeal.PointBoxes[5]:SetState(status.comboPointsOld >= 5, true);
+	end
 
 
 	-- blade flurry
@@ -564,6 +587,24 @@ function ComboMeal.GetShotStatus()
 		evi = "off",
 	};
 
+
+	-- combo points!
+
+	local comboPoints = GetComboPoints('player', 'target');
+	out.comboPoints = comboPoints;
+	out.comboPointsOld = 0;
+
+	if (comboPoints > 0) then
+
+		ComboMeal.last_combo_guid = UnitGUID('target');
+		ComboMeal.last_combo_count = comboPoints;
+	else
+		if (not (UnitGUID('target') == ComboMeal.last_combo_guid)) then
+			out.comboPointsOld = ComboMeal.last_combo_count;
+		end
+	end
+
+
 	-- test auras first
 	local test = UnitAura("Player", "Blade Flurry");
 	if (test) then
@@ -640,11 +681,6 @@ function ComboMeal.GetShotStatus()
 		index = index + 1
 	end
 
-
-	-- combo points!
-
-	local comboPoints = GetComboPoints('player', 'target');
-	out.comboPoints = comboPoints;
 
 
 	-- energy stuff
@@ -765,3 +801,4 @@ ComboMeal.EventFrame:SetScript("OnUpdate", ComboMeal.OnUpdate);
 ComboMeal.EventFrame:RegisterEvent("ADDON_LOADED");
 ComboMeal.EventFrame:RegisterEvent("PLAYER_LOGIN");
 ComboMeal.EventFrame:RegisterEvent("PLAYER_LOGOUT");
+ComboMeal.EventFrame:RegisterEvent("UNIT_COMBO_POINTS");
