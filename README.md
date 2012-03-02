@@ -23,3 +23,4 @@ These icons are _not_ ability buttons - they cannot be clicked. Set up your keyb
 * Allow customization of the overlay (keybind) text. These are currently hard-coded.
 * Correctly advise SnD when there are combo points on old targets
 * Add option for Rupture (always, never, grouped, bleed-debuff'd targets)
+* Suggest SnD while out of range (if appropriate)
