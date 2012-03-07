@@ -512,6 +512,7 @@ function ComboMeal.UpdateFrame()
 	local cd_width = (41 * cooldowns_count) - 1;
 	local cd_left = (102 - (cd_width / 2)) - 41;
 
+	local i;
 	for i=1,ComboMeal.cd_buttons_max do
 		local btn = ComboMeal.cd_buttons[i];
 		if (i <= cooldowns_count) then
