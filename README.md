@@ -1,8 +1,10 @@
 # ComboMeal - Rotation timers for combat rogues
 
+** __This addon has been discontinued, and its functionality moved to <a href="https://github.com/iamcal/wow-ButtonMash">ButtonMash</a>.__ **
+
 An addon for monitoring combo-point abilities and cooldowns for raiding combat rogues.
 
-<img src="http://github.iamcal.com/ComboMeal/ComboMeal.png" />
+<img src="http://iamcal.github.com/ComboMeal/ComboMeal.png" />
 
 The top row shows your active rotation abilities. Glowing border means right now, active icon means up next.
 
@@ -14,13 +16,3 @@ The fourth row shows profession and racial cooldowns and any on-use trinkets.
 
 
 These icons are _not_ ability buttons - they cannot be clicked. Set up your keybinds however you normally would - this addon is just to help you monitor rotation and cooldowns.
-
-
-## TODO
-
-* Check KS is working correctly (I don't yet have it on my 64 rogue)
-* Add Redirect to the second row
-* Allow customization of the overlay (keybind) text. These are currently hard-coded.
-* Correctly advise SnD when there are combo points on old targets
-* Add option for Rupture (always, never, grouped, bleed-debuff'd targets)
-* Suggest SnD while out of range (if appropriate)
